@@ -1,6 +1,8 @@
 import gym
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
+from collections import Counter
 
 import tensorflow as tf
 from tensorflow import keras
@@ -11,6 +13,7 @@ from tensorflow.keras.utils import to_categorical
 pd.set_option('display.max_columns', 250)
 
 env = gym.make('CartPole-v0')
+
 
 def manual_play():
     env.reset()
@@ -35,77 +38,83 @@ def manual_play():
             game_lost = True
     env.close()
 
-def save_move(game_num, prev_observation, action, good_action):
-    saved_moves.loc[len(saved_moves)] = [game_num] + list(prev_observation) + [action] + [good_action]
-
 
 def generate_random_moves():
-    scores = []
-    for game_num in range(5):
+    print('generating random starting data')
+    for game_num in tqdm(range(500)):
         observation = env.reset()
         for move_num in range(100): # max number of moves
-            env.render()
+            # env.render()
             action = env.action_space.sample()
             prev_observation = observation
             observation, reward, done, info = env.step(action)
             saved_moves.loc[len(saved_moves)] = [game_num] + list(prev_observation) + [action] + [not bool(done)]
             if done:
-                scores.append(move_num)
                 break
     env.close()
-    return scores
+
 
 def test_model(model):
+    freq_of_rand = 20
     for game_num in range(5):
+        chosen_actions = []
         observation = env.reset()
-        for move_num in range(1000): # max number of moves
+        for move_num in range(1000):
             env.render()
-
             observation = np.reshape(observation, (1, -1))
-            action = model.predict(observation)
-            action = np.argmax(action)
-
+            if move_num % freq_of_rand == 0:
+                action = env.action_space.sample()
+            else:
+                action = model.predict(observation)
+                action = np.argmax(action)
+                chosen_actions.append(action)
             observation, reward, done, info = env.step(action)
-            if done:
-                print('This model lasted {} moves'.format(move_num))
+            if done and move_num == 199:
+                print('\nThis model lasted 200 frames with random moves every {} frames throwing it off balance'.format(freq_of_rand))
+                print('It was too easy.Difficulty level increased!!')
+                freq_of_rand -= 5
                 break
+            elif done:
+                print('\nThis model lasted {} moves with random moves every {} frames throwing it off balance'.format(move_num, freq_of_rand))
+                break
+        print(Counter(chosen_actions))
     env.close()
 
 
+observation_size = len(env.observation_space.high)
+def define_df():
+    moves_df_architecture = {}
+    moves_df_architecture['game_num'] = []
+    for i in range(observation_size):
+        moves_df_architecture['observation_before' + str(i)] = []
+    moves_df_architecture['action'] = []
+    moves_df_architecture['good_action'] = []
+    return moves_df_architecture
 
-def run_template():
-    for i_episode in range(2):
-        observation = env.reset()
-        for t in range(100):
-            env.render()
-            print(observation)
-            action = env.action_space.sample()
-            print(action)
-            observation, reward, done, info = env.step(action)
-            if done:
-                print("Episode finished after {} timesteps".format(t+1))
-                break
-    env.close()
 
-observation = env.reset()
-print(observation.shape)
+min_accepted_score = 40
+def prune_df():
+    global saved_moves
+    # TODO delete 5 last moves before lost
+    games_played = max(saved_moves['game_num'])
+    scores = saved_moves.groupby(['game_num']).size()
+    saved_moves['score'] = saved_moves['game_num'].map(scores)
+    saved_moves = saved_moves[ saved_moves['score'] > min_accepted_score]
+    saved_moves = saved_moves[saved_moves['good_action'] == 1]
+
+    games_left = len(saved_moves['game_num'].unique())
+    not_accepted_games = games_played - games_left
+    print('average score was {} and the best score was {}'.format(np.mean(saved_moves['score']), np.max(saved_moves['score'])))
+    print('{} games were not accepted \nthis leaves us with {} games and {} records'.format(not_accepted_games, games_left, saved_moves.shape[0]))
+
+
 
 # initialize df
-moves_df_architecture = {}
-observation_size = len(env.observation_space.high)
-moves_df_architecture['game_num'] = []
-for i in range(observation_size):
-    moves_df_architecture['observation_before' + str(i)] = []
-moves_df_architecture['action'] = []
-moves_df_architecture['good_action'] = []
+df_architecture = define_df()
+saved_moves = pd.DataFrame(df_architecture)
 
-saved_moves = pd.DataFrame(moves_df_architecture)
-
-
-scores_0 = generate_random_moves()
-print('Average score when random moves {}'.format(np.mean(scores_0)))
-
-saved_moves = saved_moves[ saved_moves['good_action'] == 1 ]
+generate_random_moves()
+prune_df()
 
 x_columns = [x for x in saved_moves.columns if 'observation_before' in x]
 X = saved_moves[x_columns].values
@@ -124,9 +133,14 @@ print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
 
 
 model = Sequential([
-    Dense(512, input_dim=observation_size, activation='relu'),
+    Dense(1024, input_dim=observation_size, activation='relu'),
+    Dropout(0.2),
     Dense(512, activation='relu'),
+    Dropout(0.2),
+    Dense(256, activation='relu'),
+    Dropout(0.2),
     Dense(128, activation='relu'),
+    Dropout(0.2),
     Dense(2, activation='softmax')
 ])
 
@@ -135,19 +149,7 @@ print(model.summary())
 
 
 model.fit(X_train, y_train,
-          batch_size=1024, epochs=20, verbose=2,
+          batch_size=128, epochs=5, verbose=2,
           validation_data=(X_test, y_test))
 
-
-# y_pred = np.array([0.2, 0.3, 0.4, 0.5])
-# print(type(y_pred))
-# print(y_pred)
-# print(y_pred.shape)
-# y_pred = np.reshape(y_pred, (1,-1))
-# print(y_pred)
-# print(y_pred.shape)
-#
-# pred = model.predict(y_pred)
-# print(pred)
-# print(np.argmax(pred))
 test_model(model)
