@@ -1,9 +1,14 @@
 import gym
+import pandas as pd
 
 env = gym.make('CartPole-v0')
 
 print(env.action_space)
 print(env.observation_space)
+
+# initialize df
+df = pd.DataFrame({'moves': [],
+                   'observation_after_move': []})
 
 def manual_play():
     observation = env.reset()
@@ -29,6 +34,10 @@ def manual_play():
             game_lost = True
     env.close()
 
+
+def generate_random_moves():
+
+    pass
 
 
 def run_template():
