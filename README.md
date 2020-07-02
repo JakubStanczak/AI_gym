@@ -1,1 +1,1 @@
-# AI_gim_pole_cart
+# AI_gym_pole_cart
