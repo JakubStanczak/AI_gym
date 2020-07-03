@@ -40,8 +40,8 @@ def manual_play():
 
 
 def generate_random_moves():
-    print('generating random starting data')
-    for game_num in tqdm(range(500)):
+    print('\nGenerating random starting data')
+    for game_num in tqdm(range(1000)):
         observation = env.reset()
         for move_num in range(100): # max number of moves
             # env.render()
@@ -72,7 +72,10 @@ def test_model(model):
             if done and move_num == 199:
                 print('\nThis model lasted 200 frames with random moves every {} frames throwing it off balance'.format(freq_of_rand))
                 print('It was too easy.Difficulty level increased!!')
-                freq_of_rand -= 5
+                if freq_of_rand > 5:
+                    freq_of_rand -= 5
+                else:
+                    freq_of_rand = 2
                 break
             elif done:
                 print('\nThis model lasted {} moves with random moves every {} frames throwing it off balance'.format(move_num, freq_of_rand))
@@ -95,13 +98,14 @@ def define_df():
 min_accepted_score = 40
 def prune_df():
     global saved_moves
-    # TODO delete 5 last moves before lost
+    pop_x_last_moves = 5
     games_played = max(saved_moves['game_num'])
     scores = saved_moves.groupby(['game_num']).size()
     saved_moves['score'] = saved_moves['game_num'].map(scores)
+    # leaving only high scoring games in memory
     saved_moves = saved_moves[ saved_moves['score'] > min_accepted_score]
-    saved_moves = saved_moves[saved_moves['good_action'] == 1]
-
+    # getting rid of last moves - they probably led to failure
+    saved_moves.drop(labels=saved_moves.groupby(['game_num']).tail(5).index, inplace=True)
     games_left = len(saved_moves['game_num'].unique())
     not_accepted_games = games_played - games_left
     print('average score was {} and the best score was {}'.format(np.mean(saved_moves['score']), np.max(saved_moves['score'])))
