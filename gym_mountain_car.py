@@ -3,9 +3,9 @@ import numpy as np
 
 env = gym.make('MountainCar-v0')
 
-print(env.observation_space.high)
-print(env.observation_space.low)
-print(env.action_space)
+# print(env.observation_space.high)
+# print(env.observation_space.low)
+# print(env.action_space)
 
 learning_rate = 0.1
 discount = 0.95
@@ -15,10 +15,10 @@ render_every_x_episodes = 100
 # preparing Q table
 table_size = [20] * len(env.observation_space.high)
 table_bucket_size = (env.observation_space.high - env.observation_space.low) / table_size
-print('bucket_size', table_bucket_size)
+# print('bucket_size', table_bucket_size)
 
 q_table = np.random.uniform(low=-2, high=0, size=(table_size + [env.action_space.n]))
-print(q_table.shape)
+# print(q_table.shape)
 
 will_to_explore = 0.5
 will_decay_start = 500
@@ -74,7 +74,11 @@ for episode in range(episodes):
                 best_actions = actions_taken
                 print('shortest run from now on is {} from episode {}'.format(shortest_run['action_num'], shortest_run['episode']))
 
-print('The task was solved in {} episode using {} moves\nhowever the best run was in {} episode, it used {} moves'.format(first_win['episode'], first_win['action_num'], shortest_run['episode'], shortest_run['action_num']))
+print('\nThe task was solved in {} episode using {} moves\nhowever the best run was in {} episode, it used {} moves\n'
+      '\nNow the best run will be visualized'.format(first_win['episode'],
+                                                     first_win['action_num'],
+                                                     shortest_run['episode'],
+                                                     shortest_run['action_num']))
 
 
 def replay_run(actions_taken):
