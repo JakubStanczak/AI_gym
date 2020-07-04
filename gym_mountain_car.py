@@ -25,8 +25,6 @@ will_decay_start = 500
 will_decay_stop = 2000
 will_decay_step = will_to_explore / (will_decay_stop - will_decay_start)
 
-
-
 def observation_to_bean_num(observation):
     observation_bins = (observation - env.observation_space.low) // table_bucket_size
     return tuple(observation_bins.astype(np.int))
@@ -66,75 +64,26 @@ for episode in range(episodes):
         observation_bins = new_observation_bins
 
         if done and action_num < 200:
-            if first_win['episode'] == None:
+            if first_win['episode'] is None:
                 first_win['episode'] = episode
                 first_win['action_num'] = action_num
                 print('The task was solved by episode {} using {} moves'.format(episode, action_num))
-            if action_num < shortest_run['action_num']:
+            elif action_num < shortest_run['action_num']:
                 shortest_run['episode'] = episode
                 shortest_run['action_num'] = action_num
                 best_actions = actions_taken
-                print('shortest run from now on is {}'.format(shortest_run['action_num']))
+                print('shortest run from now on is {} from episode {}'.format(shortest_run['action_num'], shortest_run['episode']))
 
 print('The task was solved in {} episode using {} moves\nhowever the best run was in {} episode, it used {} moves'.format(first_win['episode'], first_win['action_num'], shortest_run['episode'], shortest_run['action_num']))
+
 
 def replay_run(actions_taken):
     env.reset()
     env.render()
-    for action in actions_taken:
-        env.step(action)
+    for action_taken in actions_taken:
+        env.step(action_taken)
         env.render()
 
-print('!!!!', len(best_actions))
 for _ in range(50):
     replay_run(best_actions)
 env.close()
-
-
-
-
-    # done = False
-    # while not done:
-    #     env.render()
-    #     key_not_chosen = True
-    #     while key_not_chosen:
-    #         action = input('input a for left d for right')
-    #         if action == 'a':
-    #             action = 0
-    #             key_not_chosen = False
-    #         elif action == 'd':
-    #             action = 2
-    #             key_not_chosen = False
-    #     observation, reward, done, info = env.step(action)
-    #     print('observation, reward, done, info')
-    #     print(observation, reward, done, info)
-    #     if done:
-    #         env.render()
-    #         print('YOU LOST')
-
-
-
-
-
-
-def manual_play():
-    env.reset()
-    done = False
-    while not done:
-        env.render()
-        key_not_chosen = True
-        while key_not_chosen:
-            action = input('input a for left d for right')
-            if action == 'a':
-                action = 0
-                key_not_chosen = False
-            elif action == 'd':
-                action = 2
-                key_not_chosen = False
-        observation, reward, done, info = env.step(action)
-        print('observation, reward, done, info')
-        print(observation, reward, done, info)
-        if done:
-            env.render()
-            print('YOU LOST')
-    env.close()
