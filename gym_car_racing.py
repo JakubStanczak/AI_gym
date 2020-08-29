@@ -3,7 +3,7 @@ import numpy as np
 import random
 
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Activation, Dropout, Flatten
+from tensorflow.keras.layers import Dense, Activation, Dropout, Flatten, Conv2D, MaxPool2D
 from tensorflow.keras.optimizers import Adam
 from collections import deque
 from collections import Counter
@@ -11,51 +11,72 @@ from collections import Counter
 import matplotlib.pyplot as plt
 
 env = gym.make('CarRacing-v0')
-POSSIBLE_ACTIONS = 4
+POSSIBLE_ACTIONS = 5
 
 EPISODES = 500 + 1
 EPISODE_MAX_LEN = 1000
-REPLAY_MEMORY_SIZE = 20_000
+REPLAY_MEMORY_SIZE = 2_000
 RANDOM_MOVES = 1000
 
 WILL_TO_EXPLORE = 0.9
 WILL_MIN = 0.2
 Q_DISCOUNT = 0.95
 
-TRAIN_BATCH_SIZE = 5_000
+TRAIN_BATCH_SIZE = 100
 COPY_WEIGHTS_EVERY_MOVES = 100
 
 #save
-SAVE_WEIGHTS_EVERY_EPISODES = 10
+SAVE_WEIGHTS_EVERY_EPISODES = 20
 WEIGHT_SAVE_DIR = 'car_model_weights'
 PLOT_SAVE_DIR = 'car_learning_plot'
 PLOT_AVERAGE_REWARD_FOR_LAST = 50
 
-RENDER = False
+RENDER = True
 # load
 MODEL_ITERATION = 0
 REPLAY = False
-LOAD_DIR = 'car_model_weights/model_iteration_0_episode_7'
+CONTINUE_TRAINING = False
+LOAD_DIR = 'car_model_weights/model_iteration_1_episode_100'
 
 
-will_decay_step = WILL_TO_EXPLORE / EPISODES
+will_decay_step = WILL_TO_EXPLORE / EPISODES * 1.5
 observation_size = env.observation_space.shape[0] * env.observation_space.shape[1]
 print(observation_size)
 # print(env.observation_space.high)
 # print(env.observation_space.low)
 print(env.action_space.high)
 print(env.action_space.low)
-
-
+print('env.observation_space.high.shape', env.observation_space.high.shape)
 class Agent:
-    def get_nn(self):
-        model = Sequential([
-            Dense(512, input_dim=observation_size, activation='relu'),
-            Dropout(0.2),
-            Dense(256, activation='relu'),
-            Dropout(0.2),
-            Dense(POSSIBLE_ACTIONS)
-        ])
+    def get_nn(self, cnn=True):
+        if not cnn:
+            model = Sequential([
+                Dense(1024, input_dim=observation_size, activation='relu'),
+                Dropout(0.2),
+                Dense(512, activation='relu'),
+                Dropout(0.2),
+                Dense(256, activation='relu'),
+                Dropout(0.2),
+                Dense(POSSIBLE_ACTIONS, activation='linear')
+            ])
+
+        else:
+            model = Sequential([
+                Conv2D(32, kernel_size=(3, 3), activation='relu', padding='same', input_shape=env.observation_space.high.shape),
+                MaxPool2D(pool_size=(2, 2)),
+
+                Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same'),
+                MaxPool2D(pool_size=(2, 2)),
+
+                Conv2D(128, kernel_size=(3, 3), activation='relu', padding='same'),
+                MaxPool2D(pool_size=(2, 2)),
+
+                Flatten(),
+
+                Dense(256, activation='relu'),
+                Dense(128, activation='relu'),
+                Dense(POSSIBLE_ACTIONS, activation='linear')
+            ])
 
         model.compile(loss='mse', optimizer=Adam(lr=0.0005))
         print(model.summary())
@@ -63,20 +84,25 @@ class Agent:
 
     def load_weights(self):
         self.pred_model.load_weights(LOAD_DIR)
+        self.train_model.load_weights(LOAD_DIR)
 
     def __init__(self):
         self.train_model = self.get_nn()
         self.pred_model = self.get_nn()
         self.pred_model.set_weights(self.train_model.get_weights())
+        if CONTINUE_TRAINING:
+            self.load_weights()
         self.train_counter = 0
         # observation, reward, done, action, new_q
         self.replay_memory = deque(maxlen=REPLAY_MEMORY_SIZE)
         self.will_to_explore = WILL_TO_EXPLORE
 
     def reshape_observation(self, observation):
-        if observation.shape == (96, 96, 3):
-            observation = observation[:, :, 1] / 255
-            observation = np.reshape(observation, (1, -1))
+        # if observation.shape == (96, 96, 3):
+        #     observation = observation[:, :, 1] / 255
+        #     observation = np.reshape(observation, (1, -1))
+        if observation.ndim < 4:
+            observation = np.expand_dims(observation, axis=0)
 
         return observation
 
@@ -91,23 +117,29 @@ class Agent:
         return new_observation, done, reward
 
     def chose_action(self, observation):
+        # print('observation shape', observation.shape)
         q = self.pred_model.predict(observation)
+
         if (len(self.replay_memory) < RANDOM_MOVES or np.random.random() < self.will_to_explore) and not REPLAY:
-            action = env.action_space.sample()
+            # action = env.action_space.sample()
+            action_n = random.randint(0, POSSIBLE_ACTIONS - 1)
         else:
             # print(q)
             action_n = np.argmax(q)
-            if action_n == 0:
-                action = [1, 0, 0]
-            elif action_n == 1:
-                action = [-1, 0, 0]
-            elif action_n == 2:
-                action = [0, 1, 0]
-            elif action_n == 3:
-                action = [0, 0, 1]
-            else:
-                print('ERROR: action_n too high')
-                action = env.action_space.sample()
+
+        if action_n == 0:
+            action = [0, 0, 0]
+        elif action_n == 1:
+            action = [1, 0, 0]
+        elif action_n == 2:
+            action = [-1, 0, 0]
+        elif action_n == 3:
+            action = [0, 1, 0]
+        elif action_n == 4:
+            action = [0, 0, 1]
+        else:
+            print('ERROR: action_n too high')
+            action = env.action_space.sample()
         return action, q
 
     def train(self, observation, new_observation, reward, done, q):
