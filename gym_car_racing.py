@@ -11,11 +11,11 @@ from collections import Counter
 import matplotlib.pyplot as plt
 
 env = gym.make('CarRacing-v0')
-POSSIBLE_ACTIONS = 5
+POSSIBLE_ACTIONS = 4
 
 EPISODES = 500 + 1
 EPISODE_MAX_LEN = 1000
-REPLAY_MEMORY_SIZE = 2_000
+REPLAY_MEMORY_SIZE = 2000
 RANDOM_MOVES = 1000
 
 WILL_TO_EXPLORE = 0.9
@@ -128,14 +128,12 @@ class Agent:
             action_n = np.argmax(q)
 
         if action_n == 0:
-            action = [0, 0, 0]
-        elif action_n == 1:
             action = [1, 0, 0]
-        elif action_n == 2:
+        elif action_n == 1:
             action = [-1, 0, 0]
-        elif action_n == 3:
+        elif action_n == 2:
             action = [0, 1, 0]
-        elif action_n == 4:
+        elif action_n == 3:
             action = [0, 0, 1]
         else:
             print('ERROR: action_n too high')
@@ -189,7 +187,10 @@ def update_score_plots(episode, reward, gathered_reward, min_reward, max_reward,
         gathered_reward_plot.append(gathered_reward)
         min_reward_plot.append(min_reward)
         max_reward_plot.append(max_reward)
-        average_reward_for_last_plot.append(np.mean(gathered_reward_plot[:PLOT_AVERAGE_REWARD_FOR_LAST]))
+        if len(average_reward_for_last_plot) > PLOT_AVERAGE_REWARD_FOR_LAST:
+            average_reward_for_last_plot.append(np.mean(gathered_reward_plot[-PLOT_AVERAGE_REWARD_FOR_LAST:]))
+        else:
+            average_reward_for_last_plot.append(np.mean(gathered_reward_plot))
     else:
         if reward > max_reward:
             max_reward = reward
