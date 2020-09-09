@@ -13,12 +13,7 @@ from collections import Counter
 
 import matplotlib.pyplot as plt
 
-ENV_SIZE = (30, 30, 3)
-drop_every = 5
 
-
-
-env = np.zeros(ENV_SIZE).astype(np.uint8)
 
 class Basket:
     def __init__(self):
@@ -36,28 +31,42 @@ class Basket:
             env[y, self.x + self.x_size] = self.color
 
     def move(self, dir):
-        if self.x + dir >=0 and self.x + dir < ENV_SIZE[1] - 1:
+        if self.x + dir >= 0 and self.x + dir < ENV_SIZE[1] - 1:
             self.x += dir
+
 
 class Egg:
     def __init__(self):
         self.size = 1
         self.speed = 1
-        self.good = True
-        self.color = [0, 255, 0]
+        self.good = random.randint(0, 1)
+        if self.good:
+            self.color = [0, 255, 0]
+        else:
+            self.color = [0, 0, 255]
         self.x = random.randint(0, ENV_SIZE[1]-1)
         self.y = 0
 
     def time(self, safe_zone_x, safe_zone_y):
-        self.y += 1
+        self.y += self.speed
 
+        if self.good:
+            prize_or_penalty = 1
+        else:
+            prize_or_penalty = -1
+
+        # falling off screen
         if self.y == ENV_SIZE[0]:
-            return -10
-        if safe_zone_x[0] <= self.x <= safe_zone_x[1] and safe_zone_y[0] <= self.y <= safe_zone_y[1]:
-            return 1
+            return -10 * prize_or_penalty
 
+        # catching into the basket
+        if safe_zone_x[0] <= self.x <= safe_zone_x[1] and safe_zone_y[0] <= self.y <= safe_zone_y[1]:
+            return 5 * prize_or_penalty
+
+        # hitting with the basket
         if (self.x == safe_zone_x[0] - 1 or self.x == safe_zone_x[1] + 1) and safe_zone_y[0] <= self.y <= safe_zone_y[1]:
-            return -10
+            return -5 * prize_or_penalty
+
         return 0
 
 
@@ -66,6 +75,15 @@ class Egg:
 
     def __repr__(self):
         return f'(x {self.x}, y {self.y})'
+
+ENV_SIZE = (30, 30, 3)
+drop_every = 5
+
+
+
+env = np.zeros(ENV_SIZE).astype(np.uint8)
+
+
 
 def add_egg():
     eggs.append(Egg())
@@ -123,11 +141,16 @@ def move():
 eggs = []
 basket = Basket()
 
+move_count = 0
+add_egg()
 while True:
-    add_egg()
+    move_count += 1
     draw()
     chosen_move = move()
     basket.move(chosen_move)
     time()
     draw()
+
+    if move_count % drop_every == 0:
+        add_egg()
 
