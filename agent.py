@@ -2,7 +2,7 @@ import gym
 import numpy as np
 import random
 
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, Activation, Dropout, Flatten, Conv2D, MaxPool2D
 from tensorflow.keras.optimizers import Adam
 from collections import deque
@@ -12,23 +12,23 @@ import matplotlib.pyplot as plt
 
 import egg_catcher_env
 
-env = egg_catcher_env.Egg_Catcher()
+env = egg_catcher_env.Egg_Catcher(max_moves=500)
 
-EPISODES = 200 + 1
+EPISODES = 700 + 1
 EPISODE_MAX_LEN = 1000
 
 #save
-SAVE_WEIGHTS_EVERY_EPISODES = 20
-WEIGHT_SAVE_DIR = 'eggs_model_weights'
+SAVE_WEIGHTS_EVERY_EPISODES = 2
+WEIGHT_SAVE_DIR = 'eggs_model_weights/model'
 PLOT_SAVE_DIR = 'eggs_learning_plot'
 PLOT_AVERAGE_REWARD_FOR_LAST = 20
 
 RENDER = True
 # load
-MODEL_ITERATION = 0
-REPLAY = False
+MODEL_ITERATION = 30
+REPLAY = True
 CONTINUE_TRAINING = False
-LOAD_DIR = None
+LOAD_DIR = 'eggs_model_weights/model'
 
 
 
@@ -51,40 +51,33 @@ class Agent:
 
         else:
             model = Sequential([
-                Conv2D(32, kernel_size=(3, 3), activation='relu', padding='same', input_shape=env.size),
-                MaxPool2D(pool_size=(2, 2)),
+                Conv2D(128, kernel_size=(3, 3), activation='relu', input_shape=env.size),
 
-                Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same'),
-                MaxPool2D(pool_size=(2, 2)),
-
-                Conv2D(128, kernel_size=(3, 3), activation='relu', padding='same'),
-                MaxPool2D(pool_size=(2, 2)),
+                Conv2D(256, kernel_size=(3, 3), activation='relu'),
 
                 Flatten(),
 
-                Dense(512, activation='relu'),
                 Dense(256, activation='relu'),
-                Dense(128, activation='relu'),
                 Dense(self.possible_actions, activation='linear')
             ])
 
-        model.compile(loss='mse', optimizer=Adam(lr=0.0005))
+        model.compile(loss='mse', optimizer=Adam(lr=0.001))
         print(model.summary())
         return model
 
     def load_weights(self):
-        self.pred_model.load_weights(LOAD_DIR)
-        self.train_model.load_weights(LOAD_DIR)
+        self.pred_model = load_model(LOAD_DIR)
+        self.train_model = load_model(LOAD_DIR)
 
     def __init__(self):
         self.possible_actions = env.possible_actions
 
-        self.replay_memory_size = 2000
+        self.replay_memory_size = 20000
         self.random_moves = 1000
         self.start_will_to_explore = 0.9
         self.will_min = 0.2
         self.q_discount = 0.95
-        self.train_batch_size = 100
+        self.train_batch_size = 64
         self.copy_weights_every_moves = 100
 
         self.will_decay_step = self.start_will_to_explore / EPISODES * 1.5
@@ -222,11 +215,11 @@ if not REPLAY:
 
             if move >= EPISODE_MAX_LEN:
                 done = True
-        min_reward, max_reward, gathered_reward = update_score_plots(episode, reward, gathered_reward, min_reward, max_reward, done)
+            min_reward, max_reward, gathered_reward = update_score_plots(episode, reward, gathered_reward, min_reward, max_reward, done)
         print('moves', move, 'max_reward', max_reward, 'min_reward', min_reward, 'gathered_reward', gathered_reward)
 
         if episode % SAVE_WEIGHTS_EVERY_EPISODES == 0 and episode != 0:
-            agent.pred_model.save_weights('{}/model_iteration_{}_episode_{}'.format(WEIGHT_SAVE_DIR, MODEL_ITERATION, episode))
+            agent.train_model.save(WEIGHT_SAVE_DIR)
             learning_plot(episode, show=False)
 
 else:

@@ -65,16 +65,14 @@ class Egg:
         return f'(x {self.x}, y {self.y})'
 
 class Egg_Catcher:
-    def __init__(self, env_size=(30, 30, 3), render=True):
+    def __init__(self, env_size=(30, 30, 3), render=True, max_moves=500):
         self.size = env_size
         self.possible_actions = 3
         self.drop_every = 5
         self.env = np.zeros(self.size).astype(np.uint8)
-        self.eggs = []
-        self.add_egg(self.size)
-        self.basket = Basket(self.size)
+        self.reset_env()
         self.move_count = 0
-        self.max_moves = 500
+        self.max_moves = max_moves
         self.render = render
         if self.render:
             self.draw()
@@ -126,10 +124,16 @@ class Egg_Catcher:
 
         if self.move_count >= self.max_moves:
             done = True
-            self.move_count = 0
+            self.reset_env()
         else:
             done = False
         return self.env, reward, done
+
+    def reset_env(self):
+        self.move_count = 0
+        self.eggs = []
+        self.add_egg(self.size)
+        self.basket = Basket(self.size)
 
 
 manual_test = False
